@@ -1,0 +1,457 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+
+// Import routes
+const studentRoutes = require('./routes/studentRoutes');
+const announcementRoutes = require('./routes/announcementRoutes');
+const instagramRoutes = require('./routes/instagramRoutes');
+
+// Load environment variables
+dotenv.config();
+
+// Initialize Express app
+const app = express();
+
+// Set security HTTP headers
+app.use(helmet());
+
+// Development logging
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', limiter);
+
+// Body parser
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Enable CORS
+app.use(cors());
+
+// Check if we should use mock data
+const useMockData = process.env.USE_MOCK_DATA === 'true';
+
+if (useMockData) {
+  console.log('Using mock data for development');
+  
+  // Mock data for students/birthdays/today
+  app.get('/api/students/birthdays/today', (req, res) => {
+    res.json({
+      status: 'success',
+      data: [
+        {
+          _id: '1',
+          name: 'John Smith',
+          classSection: 'Class 5A',
+          profileImage: 'https://randomuser.me/api/portraits/children/1.jpg',
+          formattedBirthday: 'April 15th'
+        },
+        {
+          _id: '2',
+          name: 'Emily Johnson',
+          classSection: 'Class 3B',
+          profileImage: 'https://randomuser.me/api/portraits/children/2.jpg',
+          formattedBirthday: 'April 15th'
+        },
+        {
+          _id: '3',
+          name: 'Michael Brown',
+          classSection: 'Class 4C',
+          profileImage: 'https://randomuser.me/api/portraits/children/3.jpg',
+          formattedBirthday: 'April 15th'
+        }
+      ]
+    });
+  });
+
+  // Mock data for recent announcements
+  app.get('/api/announcements/recent', (req, res) => {
+    const limit = parseInt(req.query.limit) || 6;
+    const announcements = [
+      {
+        _id: '1',
+        title: 'School Sports Day',
+        content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+        category: 'sports',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-10T09:00:00.000Z'
+      },
+      {
+        _id: '2',
+        title: 'End of Term Exams',
+        content: 'End of term examinations will be held from June 5th to June 15th. Please ensure your children are well prepared.',
+        category: 'academic',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        publishedBy: 'Academic Department',
+        createdAt: '2023-04-08T14:30:00.000Z'
+      },
+      {
+        _id: '3',
+        title: 'Science Fair 2023',
+        content: 'The annual science fair will be held on April 25th. Students are encouraged to showcase their innovative projects.',
+        category: 'event',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/forest-school.jpg',
+        publishedBy: 'Science Department',
+        createdAt: '2023-04-05T11:15:00.000Z'
+      },
+      {
+        _id: '4',
+        title: 'Parent-Teacher Meeting',
+        content: 'Parent-teacher meetings are scheduled for May 5th. Please book your slots in advance.',
+        category: 'academic',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/GWS-forest-school.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-03T10:45:00.000Z'
+      },
+      {
+        _id: '5',
+        title: 'Summer Vacation Dates',
+        content: 'Summer vacation will begin from June 20th and school will reopen on August 10th.',
+        category: 'holiday',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Principal',
+        createdAt: '2023-04-01T08:30:00.000Z'
+      },
+      {
+        _id: '6',
+        title: 'Art Competition Results',
+        content: 'Congratulations to all participants of the inter-school art competition. The results are now available.',
+        category: 'event',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        publishedBy: 'Art Department',
+        createdAt: '2023-03-28T16:00:00.000Z'
+      }
+    ];
+    
+    res.json({
+      status: 'success',
+      data: announcements.slice(0, limit)
+    });
+  });
+
+  // Mock data for all announcements
+  app.get('/api/announcements', (req, res) => {
+    res.json({
+      status: 'success',
+      data: [
+        {
+          _id: '1',
+          title: 'School Sports Day',
+          content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+          category: 'sports',
+          featured: true,
+          image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+          publishedBy: 'Admin Staff',
+          createdAt: '2023-04-10T09:00:00.000Z'
+        },
+        {
+          _id: '2',
+          title: 'End of Term Exams',
+          content: 'End of term examinations will be held from June 5th to June 15th. Please ensure your children are well prepared.',
+          category: 'academic',
+          featured: false,
+          image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+          publishedBy: 'Academic Department',
+          createdAt: '2023-04-08T14:30:00.000Z'
+        },
+        // ... more announcements data
+      ]
+    });
+  });
+
+  // Mock data for announcement by ID
+  app.get('/api/announcements/:id', (req, res) => {
+    const id = req.params.id;
+    res.json({
+      status: 'success',
+      data: {
+        _id: id,
+        title: 'School Sports Day',
+        content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+        category: 'sports',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-10T09:00:00.000Z'
+      }
+    });
+  });
+
+  // Mock data for Instagram feed
+  app.get('/api/instagram/feed', (req, res) => {
+    const limit = parseInt(req.query.limit) || 6;
+    const posts = [
+      {
+        id: '1',
+        imageUrl: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        caption: 'School sports day was a great success!',
+        likesCount: 125,
+        commentsCount: 15,
+        postedAt: '2023-04-10T09:00:00.000Z'
+      },
+      {
+        id: '2',
+        imageUrl: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        caption: 'Students working on their science projects',
+        likesCount: 98,
+        commentsCount: 8,
+        postedAt: '2023-04-08T14:30:00.000Z'
+      },
+      // ... more Instagram posts
+    ];
+    
+    res.json({
+      status: 'success',
+      data: posts.slice(0, limit)
+    });
+  });
+  
+} else {
+  // API routes to the actual MongoDB data
+  app.use('/api/students', studentRoutes);
+  app.use('/api/announcements', announcementRoutes);
+  app.use('/api/instagram', instagramRoutes);
+}
+
+// Root route
+app.get('/', (req, res) => {
+  res.send('School Website API is running!');
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    status: 'error',
+    message: err.message || 'Something went wrong!',
+  });
+});
+
+// Connect to MongoDB only if not using mock data
+if (!useMockData) {
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(() => {
+      console.log('MongoDB connection successful');
+    })
+    .catch((err) => {
+      console.error('MongoDB connection error:', err);
+    });
+}
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app; 
+  // Mock data for recent announcements
+  app.get('/api/announcements/recent', (req, res) => {
+    const limit = parseInt(req.query.limit) || 6;
+    const announcements = [
+      {
+        _id: '1',
+        title: 'School Sports Day',
+        content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+        category: 'sports',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-10T09:00:00.000Z'
+      },
+      {
+        _id: '2',
+        title: 'End of Term Exams',
+        content: 'End of term examinations will be held from June 5th to June 15th. Please ensure your children are well prepared.',
+        category: 'academic',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        publishedBy: 'Academic Department',
+        createdAt: '2023-04-08T14:30:00.000Z'
+      },
+      {
+        _id: '3',
+        title: 'Science Fair 2023',
+        content: 'The annual science fair will be held on April 25th. Students are encouraged to showcase their innovative projects.',
+        category: 'event',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/forest-school.jpg',
+        publishedBy: 'Science Department',
+        createdAt: '2023-04-05T11:15:00.000Z'
+      },
+      {
+        _id: '4',
+        title: 'Parent-Teacher Meeting',
+        content: 'Parent-teacher meetings are scheduled for May 5th. Please book your slots in advance.',
+        category: 'academic',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/GWS-forest-school.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-03T10:45:00.000Z'
+      },
+      {
+        _id: '5',
+        title: 'Summer Vacation Dates',
+        content: 'Summer vacation will begin from June 20th and school will reopen on August 10th.',
+        category: 'holiday',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Principal',
+        createdAt: '2023-04-01T08:30:00.000Z'
+      },
+      {
+        _id: '6',
+        title: 'Art Competition Results',
+        content: 'Congratulations to all participants of the inter-school art competition. The results are now available.',
+        category: 'event',
+        featured: false,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        publishedBy: 'Art Department',
+        createdAt: '2023-03-28T16:00:00.000Z'
+      }
+    ];
+    
+    res.json({
+      status: 'success',
+      data: announcements.slice(0, limit)
+    });
+  });
+
+  // Mock data for all announcements
+  app.get('/api/announcements', (req, res) => {
+    res.json({
+      status: 'success',
+      data: [
+        {
+          _id: '1',
+          title: 'School Sports Day',
+          content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+          category: 'sports',
+          featured: true,
+          image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+          publishedBy: 'Admin Staff',
+          createdAt: '2023-04-10T09:00:00.000Z'
+        },
+        {
+          _id: '2',
+          title: 'End of Term Exams',
+          content: 'End of term examinations will be held from June 5th to June 15th. Please ensure your children are well prepared.',
+          category: 'academic',
+          featured: false,
+          image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+          publishedBy: 'Academic Department',
+          createdAt: '2023-04-08T14:30:00.000Z'
+        },
+        // ... more announcements data
+      ]
+    });
+  });
+
+  // Mock data for announcement by ID
+  app.get('/api/announcements/:id', (req, res) => {
+    const id = req.params.id;
+    res.json({
+      status: 'success',
+      data: {
+        _id: id,
+        title: 'School Sports Day',
+        content: 'Join us for our annual sports day on May 15th. All parents are welcome to attend and cheer for their children.',
+        category: 'sports',
+        featured: true,
+        image: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        publishedBy: 'Admin Staff',
+        createdAt: '2023-04-10T09:00:00.000Z'
+      }
+    });
+  });
+
+  // Mock data for Instagram feed
+  app.get('/api/instagram/feed', (req, res) => {
+    const limit = parseInt(req.query.limit) || 6;
+    const posts = [
+      {
+        id: '1',
+        imageUrl: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Chris-and-pupils.jpg',
+        caption: 'School sports day was a great success!',
+        likesCount: 125,
+        commentsCount: 15,
+        postedAt: '2023-04-10T09:00:00.000Z'
+      },
+      {
+        id: '2',
+        imageUrl: 'https://www.greatwalstead.co.uk/wp-content/uploads/2023/09/Our-Values-Explorer.png',
+        caption: 'Students working on their science projects',
+        likesCount: 98,
+        commentsCount: 8,
+        postedAt: '2023-04-08T14:30:00.000Z'
+      },
+      // ... more Instagram posts
+    ];
+    
+    res.json({
+      status: 'success',
+      data: posts.slice(0, limit)
+    });
+  });
+  
+} else {
+  // API routes to the actual MongoDB data
+  app.use('/api/students', studentRoutes);
+  app.use('/api/announcements', announcementRoutes);
+  app.use('/api/instagram', instagramRoutes);
+}
+
+// Root route
+app.get('/', (req, res) => {
+  res.send('School Website API is running!');
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    status: 'error',
+    message: err.message || 'Something went wrong!',
+  });
+});
+
+// Connect to MongoDB only if not using mock data
+if (!useMockData) {
+  mongoose
+    .connect(process.env.MONGODB_URI)
+    .then(() => {
+      console.log('MongoDB connection successful');
+    })
+    .catch((err) => {
+      console.error('MongoDB connection error:', err);
+    });
+}
+
+// Start server
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+module.exports = app; 
